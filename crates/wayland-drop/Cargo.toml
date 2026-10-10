@@ -1,0 +1,28 @@
+[package]
+name = "photocraft-wayland-drop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "File drops on a native Wayland window (wl_data_device), which winit 0.30 doesn't deliver (#386)"
+
+# Local patch: a second isolated `unsafe` helper crate, like `photocraft-tablet`. Joining winit's
+# Wayland connection takes one `unsafe` call (`Backend::from_foreign_display`, in `src/linux.rs`);
+# everything else is denied, and every other crate keeps the workspace's `unsafe_code = "forbid"`.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[dependencies]
+log = { workspace = true }
+
+# Already in Cargo.lock (winit, smithay-clipboard and the Wayland stack pull them in); pinned
+# exactly: review the diff before bumping. `dlopen` keeps libwayland out of the ELF `NEEDED` list,
+# as winit does (linux_libs.rs).
+[target.'cfg(target_os = "linux")'.dependencies]
+raw-window-handle = "=0.6.2"
+wayland-backend = { version = "=0.3.17", features = ["client_system", "dlopen"] }
+wayland-client = "=0.31.15"
+rustix = { version = "=1.1.5", default-features = false, features = ["std", "event", "pipe"] }

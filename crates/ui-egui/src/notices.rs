@@ -64,11 +64,13 @@ pub(crate) fn paste_hint(app: &PhotocraftApp) -> String {
     crate::shortcuts::shortcut_label(app, "edit.paste").unwrap_or_else(|| tl!("Edit › Paste").to_string())
 }
 
-/// Show the Wayland-specific fallback guidance unless the user dismissed it in preferences: winit
-/// 0.30 delivers no file drops on Wayland, so point at File › Open, pasting a copied file, and the
+/// Show the Wayland-specific fallback guidance unless the user dismissed it in preferences or the
+/// app receives Wayland drops itself (`Services::native_drops`): winit 0.30 delivers no file drops
+/// on Wayland, so point at File › Open, pasting a copied file, and the
 /// command that starts this install under XWayland (where drops work), when there is one.
 pub fn wayland_file_drop_guidance(app: &mut PhotocraftApp) {
     if !app.services.is_wayland
+        || app.services.native_drops.is_some()
         || app.session.prefs().dialogs.get(WAYLAND_FILE_DROP_DISMISSED).and_then(serde_json::Value::as_bool) == Some(true)
         || app.ui.notices.iter().any(|notice| notice.dismiss_pref.as_deref() == Some(WAYLAND_FILE_DROP_DISMISSED))
     {
@@ -309,6 +311,13 @@ mod tests {
         let guidance = english(&app.ui.notices[0]);
         assert!(guidance.contains("File › Open"));
         assert!(!guidance.contains("XWayland"), "{guidance}");
+    }
+
+    #[test]
+    fn no_wayland_guidance_when_the_app_receives_drops_itself() {
+        let services = Services { is_wayland: true, native_drops: Some(Box::new(|_: &mut egui::RawInput| {})), ..Default::default() };
+        let app = PhotocraftApp::new(Session::new(), services);
+        assert!(app.ui.notices.iter().all(|notice| notice.dismiss_pref.as_deref() != Some(WAYLAND_FILE_DROP_DISMISSED)));
     }
 
     #[test]

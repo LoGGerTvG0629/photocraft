@@ -46,6 +46,8 @@ mod services;
 #[cfg(any(target_os = "macos", target_os = "linux", test))]
 mod tablet;
 mod ui_state;
+#[cfg(target_os = "linux")]
+mod wayland_drop;
 
 use photocraft_engine::Session;
 use photocraft_ui_egui::PhotocraftApp;
@@ -447,6 +449,14 @@ fn main() -> eframe::Result {
             let _ = in_window_menus;
             // Where file drags and drops are (winit 0.30 doesn't say).
             app.services.cursor_pos = cursor::service(cc);
+            // Native Wayland: our own wl_data_device delivers the drops and their position (#386).
+            #[cfg(target_os = "linux")]
+            if app.services.is_wayland
+                && let Some((native_drops, cursor_pos)) = wayland_drop::services(cc)
+            {
+                app.services.native_drops = Some(native_drops);
+                app.services.cursor_pos = Some(cursor_pos);
+            }
             // Caps Lock state (X11/Windows/macOS; `None` on native Wayland): the canvas shows the
             // precise crosshair for painting tools while it is toggled on (#1758).
             app.services.caps_lock = caps_lock::service(cc);

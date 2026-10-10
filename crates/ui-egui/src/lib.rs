@@ -266,6 +266,9 @@ pub type OsEventsFn = Box<dyn FnMut() -> Vec<OsEvent>>;
 pub type QuitFn = Box<dyn FnMut()>;
 /// Where the OS pointer is now, in egui points within the window; `None` when unknown.
 pub type CursorPosFn = Box<dyn FnMut(&egui::Context) -> Option<egui::Pos2>>;
+/// Fills in file drags and drops winit doesn't deliver (native Wayland): the hovered and dropped
+/// files of this frame's raw input.
+pub type NativeDropsFn = Box<dyn FnMut(&mut egui::RawInput)>;
 /// Whether Caps Lock is toggled on, read from the OS. `None` where the platform cannot
 /// report it (native Wayland): the cursor then follows the cursor preference (#1758).
 pub type CapsLockFn = Box<dyn FnMut() -> bool>;
@@ -331,6 +334,8 @@ pub struct Services {
     /// The pointer position read from the OS (desktop): winit 0.30's file drops carry none, and
     /// the window gets no pointer events during an OS drag (see `file_open::DropTarget`).
     pub cursor_pos: Option<CursorPosFn>,
+    /// File drags and drops from the OS where winit delivers none (native Wayland, #386).
+    pub native_drops: Option<NativeDropsFn>,
     /// Caps Lock toggled on (desktop; `None` on Wayland and the web). Read once per frame, so
     /// the canvas can show the precise crosshair for painting tools, whatever the preference.
     pub caps_lock: Option<CapsLockFn>,
@@ -1252,6 +1257,9 @@ impl eframe::App for PhotocraftApp {
             wheel_nav::fold_legacy_pinch(ctx, raw_input);
         }
         raw_input.events.extend(self.take_synthetic_step());
+        if let Some(drops) = self.services.native_drops.as_mut() {
+            drops(raw_input);
+        }
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {

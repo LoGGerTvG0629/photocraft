@@ -70,6 +70,8 @@ zbus = "=5.19.0"
 # Already used by the portal stack; bounded waits let cancelling close the OS request.
 futures-lite = "=2.6.1"
 async-io = "=2.6.0"
+# File drops on native Wayland (`wayland_drop.rs`, #386; local patch).
+photocraft-wayland-drop = { workspace = true }
 # Open the window through Xwayland for a pen on Wayland (`tablet.rs`, #639): eframe doesn't
 # re-export winit's `EventLoopBuilderExtX11`. Already in Cargo.lock (eframe); pinned exactly.
 winit = { version = "=0.30.13", default-features = false, features = ["x11"] }

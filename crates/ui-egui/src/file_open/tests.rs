@@ -527,6 +527,29 @@ fn a_drop_slot_counts_documents_not_the_tabs_shown() {
     assert_eq!(crate::canvas::TabStrip { rect: strip.rect, tabs: vec![] }.slot(10.0), 0);
 }
 
+/// Drops winit doesn't deliver (native Wayland, #386) come in through `Services::native_drops`,
+/// filled into each frame's raw input after the app's own input fixes.
+#[test]
+fn native_drops_service_fills_the_raw_input() {
+    let calls = Rc::new(std::cell::Cell::new(0));
+    let seen = calls.clone();
+    let services = Services {
+        native_drops: Some(Box::new(move |raw: &mut egui::RawInput| {
+            seen.set(seen.get() + 1);
+            raw.hovered_files.push(egui::HoveredFile::default());
+            raw.dropped_files.push(dropped("/dropped/on/wayland.png", Err("read from the path".into())));
+        })),
+        ..Default::default()
+    };
+    let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), services);
+    let mut raw = egui::RawInput::default();
+    eframe::App::raw_input_hook(&mut app, &egui::Context::default(), &mut raw);
+    assert_eq!(calls.get(), 1);
+    assert_eq!(raw.hovered_files.len(), 1);
+    assert_eq!(raw.dropped_files.len(), 1);
+    assert_eq!(raw.dropped_files[0].path(), std::path::Path::new("/dropped/on/wayland.png"));
+}
+
 /// The whole app (eframe harness, real layout): over the tab strip, the pointer read from the OS
 /// service picks a slot; files dropped there open (in the background) at it; dropped on the canvas they're placed in Free Transform, and Esc takes the place back.
 #[test]
